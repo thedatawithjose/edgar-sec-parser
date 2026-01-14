@@ -121,9 +121,6 @@ docs/
 scripts/
 notebooks/
 
-yaml
-Copy code
-
 ---
 
 ## What This Project Demonstrates

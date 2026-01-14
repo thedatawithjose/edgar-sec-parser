@@ -109,17 +109,21 @@ absolute throughput benchmarks.
 ---
 
 ## Project Structure
-
+```
 sec_extractor/
-├── parsers/ # SGML / XBRL parser integrations
-├── core/ # Routing and processing logic
-├── discovery/ # Filing discovery utilities
-├── storage/ # Database models and persistence
-├── tests/ # Unit, integration, and performance tests
+├── parsers/      # SGML / XBRL parser integrations
+├── core/         # Routing and processing logic
+├── discovery/    # Filing discovery utilities
+├── storage/      # Database models and persistence
+└── tests/        # Unit, integration, and performance tests
+
 docs/
-├── arquitecture.png
+└── arquitecture.png
+
 scripts/
+
 notebooks/
+```
 
 ---
 

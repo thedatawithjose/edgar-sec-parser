@@ -1,193 +1,111 @@
-# 🛡️ Edgar SEC Parser - Advanced Financial Document Processing System
+# EDGAR SEC Parser
 
-![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-green.svg)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)
-![Performance](https://img.shields.io/badge/Throughput-16.51MB/s-brightgreen.svg)
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+A data ingestion and parsing system for transforming unstructured SEC regulatory filings
+(SGML / XBRL) into structured, queryable datasets for analytics and downstream processing.
 
-**High-performance SEC filing extraction system powered by modern parsing technologies for identifying and processing financial document structures in regulatory filings**
+This project focuses on reliability, correctness, and failure handling when working with
+heterogeneous financial documents that are inconsistent by nature.
 
-🚀 [Quick Start](#-quick-start) • 📊 [Features](#-key-features) • 🔧 [Installation](#installation) • 📈 [Performance](#-performance-metrics) • 🧪 [Usage](#-testing)
+## Context
 
-## 🎯 Project Overview
+SEC filings are semi-structured documents with multiple formats, frequent inconsistencies,
+and legacy edge cases. Manual processing or naive parsing approaches often fail silently,
+producing partial or misleading data.
 
-Edgar is a production-ready SEC filing extraction and parsing system that intelligently processes regulatory documents using advanced parser integration. Built with John Friedman's specialized SEC parsing libraries (`secsgml` v0.3.1 and `secxbrl` v0.5.0), Edgar provides robust, scalable financial document processing capabilities.
+This system was designed to ingest SEC filings and normalize their structure into a
+relational model that can be safely used for analytics, research, and downstream pipelines.
 
-## ✨ Key Features
+## Architecture
 
-- **🚀 High-Performance Processing**: Up to 16.51 MB/s document throughput with intelligent content detection
-- **🔄 Hybrid Parser Architecture**: Seamlessly combines SGML and XBRL parsing with legacy system compatibility  
-- **📊 Multi-Format Support**: Native processing of SGML, XBRL, and traditional SEC document formats
-- **🛡️ Enterprise-Grade Reliability**: 100% error case handling with graceful fallback mechanisms
-- **🏗️ Production-Ready Infrastructure**: Comprehensive testing, validation, and deployment capabilities
-- **🔍 Intelligent Content Analysis**: Automatic document type detection and optimal parser selection
-- **💾 Advanced Data Extraction**: Structured metadata and financial facts extraction from complex filings
+High-level flow:
 
-## 🏗️ Architecture
+SEC Filings (SGML / XBRL)
+→ Format detection
+→ Parser selection (SGML / XBRL / integrated)
+→ Normalization layer
+→ PostgreSQL storage (metadata + extracted facts)
 
-```
-Edgar/
-├── sec_extractor/           # Core extraction system
-│   ├── parsers/            # Integrated SEC parsers
-│   ├── core/               # Processing engine
-│   ├── storage/            # Database models
-│   ├── discovery/          # SEC feed discovery
-│   └── extractors/         # Content extractors
-├── tests/                  # Test suites
-│   ├── test_parsers/       # Parser unit tests
-│   ├── integration/        # Integration tests
-│   └── performance/        # Performance validation
-├── scripts/                # Utility scripts
-├── notebooks/              # Analysis notebooks
-```
+The system uses specialized SEC parsing libraries (`secsgml`, `secxbrl`) wrapped behind a
+common interface to isolate parser-specific complexity from the ingestion logic.
 
-## 🚀 Quick Start
+## Data Flow
 
-See [SETUP.md](SETUP.md) for full installation and configuration instructions.
+1. Discover and fetch SEC filings
+2. Detect document format and structure
+3. Route to the appropriate parser
+4. Normalize extracted content into a stable schema
+5. Persist structured data and metadata to PostgreSQL
 
-### Prerequisites
-- Python 3.11+
-- PostgreSQL database
-- Docker (optional)
+Batch-oriented processing is used to favor reproducibility and traceability over raw
+throughput.
 
-### Installation (Summary)
+## Key Design Decisions & Trade-offs
 
-1. **Clone and setup environment:**
-```bash
-git clone https://github.com/josetraderx/edgar-sec-parser.git
-cd edgar-sec-parser
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
+- **Multiple parsers vs single universal parser**  
+  Using specialized parsers increases complexity but significantly improves correctness
+  across heterogeneous document formats.
 
-2. **Configure environment:**
-```bash
-cp .env.example .env
-# Edit .env with your database credentials and settings
-```
+- **Relational storage vs document storage**  
+  PostgreSQL was chosen to enable explicit schemas, constraints, and downstream SQL-based
+  analytics at the cost of some ingestion flexibility.
 
-3. **Database setup:**
-```bash
-python -c "from sec_extractor.storage.database import DatabaseManager; DatabaseManager().create_tables()"
-```
+- **Batch processing over streaming**  
+  Filings are processed in batches to simplify error recovery, reprocessing, and auditing.
 
-4. **Run the demo:**
-```bash
-python demo_live_simple.py
-```
+## Assumptions
 
-### Docker Usage
+- SEC filings may be malformed or incomplete
+- Schema drift is expected across filings and time
+- Throughput requirements are secondary to correctness
+- Reprocessing and backfills must be supported
 
-To run the system with Docker:
-```bash
-docker-compose up -d
-```
+## Failure Scenarios & Handling
 
-## 📊 Performance Metrics
+The system explicitly handles:
+- Malformed SGML / XBRL documents
+- Partial filings
+- Parser-specific failures
+- Unexpected document structures
 
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Peak Throughput** | 16.51 MB/s | Maximum document processing speed |
-| **Realistic Performance** | 1.77 MB/s | Average processing with real SEC content |
-| **Error Recovery** | 100% | Successful handling of malformed documents |
-| **Parser Coverage** | 3 engines | SGML, XBRL, and integrated parsing |
-| **Database Integration** | ✅ Complete | Full metadata and facts storage |
+Failures are logged with sufficient metadata to allow reprocessing without data loss.
+Fallback parsing strategies are applied where possible.
 
-## 🧪 Testing
+## Testing
 
-### Full Test Suite
-```bash
-pytest tests/ -v
-pytest tests/ --cov=sec_extractor --cov-report=html
-```
+The project includes:
+- Unit tests for parser integration
+- Integration tests for ingestion and storage
+- Basic performance tests to detect regressions
 
-### Performance Benchmarking
-```bash
-python tests/performance/test_parser_performance.py
-```
+Testing focuses on correctness and failure handling rather than absolute performance.
 
-## 📚 Documentation & Resources
+## Project Structure
 
-- **[SETUP.md](SETUP.md)** - Installation and configuration guide
-- **[Performance Reports](tests/performance/)** - Detailed benchmarking and validation results  
-- **[Parser Documentation](sec_extractor/parsers/)** - Technical implementation details
-- **[Database Schema](sec_extractor/storage/)** - Data models and relationships
-
-## 🛠️ Development
-
-### Project Structure
-```
 sec_extractor/
-├── parsers/                # SEC parser integration
-│   ├── base.py            # Parser interfaces
-│   ├── sgml_parser.py     # SGML processing
-│   ├── xbrl_parser.py     # XBRL processing
-│   └── integrated_parser.py # Unified orchestrator
-├── core/
-│   ├── parser_integration.py # TieredProcessor bridge
-│   └── tiered_processor.py   # Main processing engine
-└── storage/
-    └── models.py          # Database models
-```
+├── parsers/ # Parser integrations (SGML / XBRL)
+├── core/ # Routing and processing logic
+├── discovery/ # Filing discovery
+├── storage/ # Database models and persistence
+├── tests/ # Unit, integration, and performance tests
 
-### Adding New Parsers
+yaml
+Copy code
 
-1. Implement `BaseParser` interface
-2. Add to `ParserManager` 
-3. Create appropriate tests
-4. Update documentation
+## What This Project Demonstrates
 
-## 📈 Performance Optimization
+- Designing ingestion pipelines for unreliable external data
+- Isolating third-party parsing complexity
+- Making explicit trade-offs between correctness and performance
+- Treating data quality and silent failures as system-level concerns
 
-The system has been optimized for:
-- **High throughput processing**
-- **Memory efficient parsing**
-- **Graceful error handling**
-- **Scalable architecture**
+## Future Improvements
 
-## 🐳 Production Deployment
-
-To deploy with Docker Compose, see the example below:
-```yaml
-version: '3.8'
-services:
-  edgar:
-    build: .
-    environment:
-      - DATABASE_URL=postgresql://user:pass@db:5432/edgar
-    depends_on:
-      - db
-  db:
-    image: postgres:13
-    environment:
-      - POSTGRES_DB=edgar
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Please follow these steps:
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Add comprehensive tests** for new functionality
-4. **Ensure all tests pass**: `pytest tests/ -v`
-5. **Follow code style**: `black . && flake8`
-6. **Submit a pull request** with detailed description
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🎉 Acknowledgments
-
-- **[John Friedman](https://github.com/jfriedi)** - Creator of the exceptional `secsgml` and `secxbrl` parsing libraries
-- **SEC EDGAR System** - For providing comprehensive financial data access
-- **Python Community** - For robust tooling and ecosystem support
+- Incremental ingestion and change detection
+- Schema versioning and data contracts
+- Observability metrics for ingestion health
+- Integration into a larger orchestration framework (e.g., Airflow)
 
 ---
 
-**Edgar SEC Parser - Transforming regulatory document processing with intelligent parsing technology**
+Built as a practical exercise in data ingestion, reliability, and system design for
+decision-critical financial data.

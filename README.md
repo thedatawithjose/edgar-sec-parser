@@ -1,108 +1,145 @@
 # EDGAR SEC Parser
 
-A data ingestion and parsing system for transforming unstructured SEC regulatory filings
-(SGML / XBRL) into structured, queryable datasets for analytics and downstream processing.
+A data ingestion and parsing system for transforming unstructured SEC EDGAR regulatory
+filings (SGML / XBRL) into structured, queryable datasets for analytics and downstream
+data pipelines.
 
-This project focuses on reliability, correctness, and failure handling when working with
-heterogeneous financial documents that are inconsistent by nature.
+This project focuses on correctness, reliability, and failure isolation when working
+with heterogeneous financial documents where silent parsing errors can lead to
+misleading or invalid conclusions.
+
+---
 
 ## Context
 
-SEC filings are semi-structured documents with multiple formats, frequent inconsistencies,
-and legacy edge cases. Manual processing or naive parsing approaches often fail silently,
-producing partial or misleading data.
+SEC filings are semi-structured documents published in multiple formats, with frequent
+inconsistencies, legacy edge cases, and malformed content. Naive parsing approaches
+often fail silently, producing partial or incorrect data without clear signals.
 
 This system was designed to ingest SEC filings and normalize their structure into a
-relational model that can be safely used for analytics, research, and downstream pipelines.
+relational model that can be safely used for analytics, research, and decision-support
+pipelines, prioritizing traceability and reproducibility over raw throughput.
+
+---
 
 ## Architecture
 
-High-level flow:
+![Architecture Diagram](docs/arquitecture.png)
 
-SEC Filings (SGML / XBRL)
-→ Format detection
-→ Parser selection (SGML / XBRL / integrated)
-→ Normalization layer
-→ PostgreSQL storage (metadata + extracted facts)
+The architecture separates format detection, parsing, and normalization to explicitly
+isolate upstream inconsistencies from downstream consumers.
 
-The system uses specialized SEC parsing libraries (`secsgml`, `secxbrl`) wrapped behind a
-common interface to isolate parser-specific complexity from the ingestion logic.
+At a high level, the system:
+- Detects the document format (SGML, XBRL, or unknown)
+- Routes documents to specialized parsers
+- Normalizes extracted content into a stable schema
+- Persists metadata and extracted facts to PostgreSQL
+
+This separation allows failures and parser-specific issues to be handled without
+corrupting the structured data layer.
+
+---
 
 ## Data Flow
 
-1. Discover and fetch SEC filings
-2. Detect document format and structure
-3. Route to the appropriate parser
-4. Normalize extracted content into a stable schema
-5. Persist structured data and metadata to PostgreSQL
+1. Discover and fetch SEC EDGAR filings
+2. Detect document format and structural characteristics
+3. Route the document to the appropriate parser (SGML, XBRL, or fallback)
+4. Extract and normalize relevant metadata and financial facts
+5. Persist structured data to PostgreSQL for querying and downstream use
 
-Batch-oriented processing is used to favor reproducibility and traceability over raw
-throughput.
+Processing is batch-oriented to favor reproducibility, auditability, and safe
+reprocessing over low-latency ingestion.
+
+---
 
 ## Key Design Decisions & Trade-offs
 
-- **Multiple parsers vs single universal parser**  
-  Using specialized parsers increases complexity but significantly improves correctness
-  across heterogeneous document formats.
+- **Specialized parsers vs a single universal parser**  
+  Using dedicated SGML and XBRL parsers increases integration complexity but significantly
+  improves correctness across heterogeneous document formats.
 
-- **Relational storage vs document storage**  
-  PostgreSQL was chosen to enable explicit schemas, constraints, and downstream SQL-based
-  analytics at the cost of some ingestion flexibility.
+- **Normalization layer as a hard boundary**  
+  All parser outputs pass through a normalization layer to enforce schema consistency
+  and prevent malformed data from leaking into storage.
 
 - **Batch processing over streaming**  
-  Filings are processed in batches to simplify error recovery, reprocessing, and auditing.
+  Batch ingestion simplifies error handling, backfills, and reprocessing at the cost of
+  higher end-to-end latency.
+
+- **Relational storage (PostgreSQL)**  
+  PostgreSQL was chosen to enable explicit schemas, constraints, and SQL-based analytics,
+  trading some flexibility for stronger guarantees.
+
+---
 
 ## Assumptions
 
-- SEC filings may be malformed or incomplete
-- Schema drift is expected across filings and time
-- Throughput requirements are secondary to correctness
-- Reprocessing and backfills must be supported
+- SEC filings may be incomplete or malformed
+- Schema drift is expected across time and filing types
+- Correctness and traceability are more important than ingestion speed
+- Reprocessing and backfills must be supported as first-class operations
+
+---
 
 ## Failure Scenarios & Handling
 
-The system explicitly handles:
-- Malformed SGML / XBRL documents
-- Partial filings
-- Parser-specific failures
+The system explicitly accounts for:
+- Malformed or partially corrupted SGML/XBRL documents
 - Unexpected document structures
+- Parser-specific failures
+- Inconsistent or missing sections within filings
 
-Failures are logged with sufficient metadata to allow reprocessing without data loss.
-Fallback parsing strategies are applied where possible.
+Failures are logged with sufficient metadata to allow targeted reprocessing without
+data loss. When possible, fallback parsing strategies are applied to recover partial
+content safely.
+
+---
 
 ## Testing
 
 The project includes:
-- Unit tests for parser integration
-- Integration tests for ingestion and storage
+- Unit tests for parser integrations
+- Integration tests for ingestion and persistence
 - Basic performance tests to detect regressions
 
-Testing focuses on correctness and failure handling rather than absolute performance.
+Testing prioritizes correctness, schema consistency, and failure handling rather than
+absolute throughput benchmarks.
+
+---
 
 ## Project Structure
 
 sec_extractor/
-├── parsers/ # Parser integrations (SGML / XBRL)
+├── parsers/ # SGML / XBRL parser integrations
 ├── core/ # Routing and processing logic
-├── discovery/ # Filing discovery
+├── discovery/ # Filing discovery utilities
 ├── storage/ # Database models and persistence
 ├── tests/ # Unit, integration, and performance tests
+docs/
+├── arquitecture.png
+scripts/
+notebooks/
 
 yaml
 Copy code
 
+---
+
 ## What This Project Demonstrates
 
-- Designing ingestion pipelines for unreliable external data
-- Isolating third-party parsing complexity
-- Making explicit trade-offs between correctness and performance
+- Designing ingestion pipelines for unreliable external data sources
+- Isolating third-party parsing complexity behind stable interfaces
+- Making explicit trade-offs between correctness, complexity, and performance
 - Treating data quality and silent failures as system-level concerns
+
+---
 
 ## Future Improvements
 
 - Incremental ingestion and change detection
-- Schema versioning and data contracts
-- Observability metrics for ingestion health
+- Schema versioning and explicit data contracts
+- Observability metrics for ingestion health and failure rates
 - Integration into a larger orchestration framework (e.g., Airflow)
 
 ---
